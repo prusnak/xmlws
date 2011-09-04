@@ -1,0 +1,3 @@
+read q
+query=`echo $q | tr -s ' ' +`
+wget -S -U MSIE -O /dev/null "http://www.google.com/search?btnI=1&q=$query" 2>&1 | grep following | head -n 1 | awk '{ print $2; }'

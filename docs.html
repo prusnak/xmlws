@@ -1,0 +1,79 @@
+<html>
+<head><title>XML WS - XML WebService Server</title></head>
+<body>
+
+<h1>XML WS - XML WebService Server</h1>
+
+<h2>Uzivatelska dokumentacia</h2>
+
+<h3>Uvod</h3>
+
+<p>Tento program vznikol na Matematicko-fyzikalnej fakulty Univerzity Karlovej v Prahe ako zapoctovy program na predmet Unix. Jedna sa o zjednodusenu implementaciu SOAP protokolu.</p>
+
+<h3>Popis programu</h3>
+
+<p>XML Web Servisy funguju vlastne ako triedy s metodami, ktore nebezia na tom istom pocitaci ako program, ktory ich pouziva. Na vymenu parametrov metod a navratovych hodnot sa pouziva protokol SOAP, co je vlastne XML dokument prenasany pomocou protokolu HTTP metodou POST.</p>
+
+<h3>Konfiguracia</h3>
+
+<p>Hlavny konfiguracny subor sa nazyva <b>xmlws.config</b>. Jeho struktura je nasledovna:</p>
+
+<pre>
+&lt;configuration&gt; 
+
+	&lt;server&gt;
+		&lt;host&gt;195.139.7.129&lt;/host&gt;
+		&lt;port&gt;4567&lt;/port&gt;
+		&lt;threads&gt;10&lt;/threads&gt;
+	&lt;/server&gt;
+	
+	&lt;service name="Google"&gt;
+		&lt;docs&gt;This service provides basic Google search&lt;/docs&gt;
+		&lt;method name="Search" returns="string" exec="./google/search"&gt;
+			&lt;param name="query" type="string" /&gt;
+		&lt;/method&gt;
+	&lt;/service&gt;
+	
+&lt;/configuration&gt;
+</pre>
+
+<p>V hlavnom tagu <b>configuration</b> sa nachadza prave jeden tag <b>server</b>, kde je ulozena konfiguracia servra a niekolko tagov <b>service</b>, kde su ulozene definicie servisov. V polozke <b>host</b> je ulozeny nazov resp. IP adresa pocitaca, kde program bezi, <b>port</b> obsahuje port, na ktorom server pocuva a nakoniec <b>threads</b> udava maximalny pocet simultanne pripojenych klientov. Tag <b>service</b> ma povinny atribut <b>name</b>, v ktorom je ulozeny nazov sluzby. <b>Docs</b> obsahuje kratky popis sluzby. Kazdy servis ma niekolko definicii metod. Kazda takato definicia obsahuje meno (<b>name</b>), navratovu hodnotu (<b>returns</b>) a cestu k skriptu, ktory sa ma spustit pri volani danej metody (<b>exec</b>). Kazda metoda obsahuje aj zoznam parametrov (<b>param</b>) so svojim typom (<b>type</b>) a menom (<b>name</b>). </p>
+
+<h3>Princip fungovania</h3>
+
+<p>Program po spusteni pocuva na zadanom porte na poziadavky. Tieto mozu byt dvoch typov podla metody. Ak sa jedna o metodu GET, program posle definiciu webovej sluzby vo formate <a href="http://www.w3.org/TR/wsdl">WSDL</a>. (Adresa musi byt v tvare http://server:port/menosluzby) Ak sluzba s danym menom nieje zadefinovana, tak sa vrati chybova stranka. Tuto definiciu WSDL mozme pouzit takmer v kazdom prostredi, ktore podporuje WebServisy (napr. Visual Studio .NET alebo <a href="http://www.mindreef.net/tide/scopeit/start.do">Mindreef SOAPscope</a>). Ked pride poziadavka typu POST, opat sa skontroluje, ci dana sluzba existuje a ked ano, posle sa HTTP kod 100 Continue, ktory povie klientovi, ze moze pokracovat v posielani poziadavky. Ten odpovie zoznamom parametrov zabalenych do XML. Server si z dat vyberie potrebne udaje a spusti proces definovany v konfiguraku. Tomu preda na standardny vstup jeden parameter na jeden riadok a ocakava vystup na standardny vystup. Tento potom zabali opat do XMLka a posle klientovi.</p>
+
+<h2>Programatorska dokumentacia</h2>
+
+<h3>Uvod</h3>
+
+<p>Program je napisany v jazyku C++ v prostredi GCC/G++ pod operacnymi systemami typu UNIX. Bol uspesne otestovany v OS GNU/Linux a AIX, ale nemal by byt problem program spustit pod akymkolvek operacnym systemom pridrziavajucim sa normy POSIX.</p>
+
+<h3>main.cc main.hh</h3>
+
+<p>Hlavny subor programu. V podstate len vytvori instanciu triedy Application a zavola jej metodu Run. Okrem toho este odchytava vynimky, ktore vybublaju z tejto triedy a pripadne vypise chybu.</p>
+
+<h3>Application.cc Application.hh</h3>
+
+<p>Hlavna trieda. V inicializacii vytvori mutex pre neskorsie zamykanie, dva kluce pre identifikaciu poli vo vlaknach a nakonfiguruje program pomocou triedy Config. Metoda AddService prida servis do zoznamu, naopak metoda GetService najde metodu zo zoznamu podla mena. Metoda Instance vrati instanciu triedy.</p>
+
+<h3>Config.cc Config.hh</h3>
+
+<p>Trieda ktora spracuje subor xmlws.config a naplni potrebne premenne (Services, Host, Port v triede Application). Na parsovanie XML suboru sa pouziva kniznica <a href="http://ezxml.sourceforge.net/">ezxml</a>.</p>
+
+<h3>Server.cc Server.hh</h3>
+
+<p>Samotny server. Vytvori soket na danom porte, pocuva na nom, prijima konexie a pre kazdu vytvori samostatne vlakno, ktore obsluzi pomocou metody Handler. Ak je to metoda GET (vid vyssie) priamo odpovie (pomocou metody GETResponse), ak sa jedna o metodu POST, spracuje sa pomocou metody POSTResponse. Tato vytvara instanciu triedy Soap, ktora sa stara o samotnu odpoved.</p>
+
+<h3>Soap.cc Soap.hh</h3>
+
+<p>Trieda, ktora spracuje SOAP poziadavku a posle vysledok. Vysledok sa ziska tym, ze sa zavola prislusny proces (pomocou metody Exec) a na standardny vstup sa mu poslu parametre (jeden parameter na jeden riadok) a vystup sa ocakava na standardnom vystupe. Ten sa opat sformuje do XML a posle klientovi.</p>
+
+<h3>ServiceStruct.cc ServiceStruct.hh</h3>
+
+<p>Pomocne triedy, ktore sluzia na uchovavanie definicii servisov, ich metod, parametrov metod a datovych typov.</p>
+
+<p align="right">Pavol Rusnak, 2005-09-26</p>
+
+</body>
+</html>
